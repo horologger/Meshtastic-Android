@@ -162,4 +162,105 @@ Required environment variables for development:
 - `ANDROID_NDK_HOME`
 - `ANDROID_NDK_ROOT`
 - `ANDROID_NDK_PATH`
-- `ANDROID_NDK_PLATFORM` 
+- `ANDROID_NDK_PLATFORM`
+
+## Satochip Integration
+
+### Overview
+The project includes Satochip hardware wallet integration through two main components:
+- `satochip-lib/` - Core Satochip library
+- `satochip-android/` - Android-specific Satochip implementation
+
+### Integration Steps
+
+1. Add Dependencies
+   In your app's `build.gradle`, add:
+   ```gradle
+   dependencies {
+       implementation project(':satochip-lib')
+       implementation project(':satochip-android')
+   }
+   ```
+
+2. Update Settings
+   In `settings.gradle`, add:
+   ```gradle
+   include ':satochip-lib'
+   include ':satochip-android'
+   ```
+
+3. Implementation
+   - Use Satochip for secure key storage
+   - Implement hardware wallet authentication
+   - Add secure transaction signing
+   - Enable hardware wallet backup features
+
+### Key Features
+1. Hardware Security
+   - Secure key storage
+   - Hardware-based authentication
+   - Transaction signing
+   - Backup and recovery
+
+2. Integration Points
+   - User authentication
+   - Secure messaging
+   - Key management
+   - Backup operations
+
+### Usage Guidelines
+1. Initialize Satochip
+   ```kotlin
+   // Initialize Satochip manager
+   val satochipManager = SatochipManager(context)
+   ```
+
+2. Authentication
+   ```kotlin
+   // Authenticate user
+   satochipManager.authenticate()
+   ```
+
+3. Key Management
+   ```kotlin
+   // Generate or import keys
+   satochipManager.generateKey()
+   ```
+
+4. Backup Operations
+   ```kotlin
+   // Backup wallet
+   satochipManager.backupWallet()
+   ```
+
+### Security Considerations
+1. Key Storage
+   - Use Satochip for all sensitive key storage
+   - Never store private keys in app storage
+   - Implement proper backup procedures
+
+2. Authentication
+   - Require hardware authentication for sensitive operations
+   - Implement proper session management
+   - Handle authentication failures gracefully
+
+3. Backup
+   - Implement secure backup procedures
+   - Provide clear backup instructions to users
+   - Handle backup verification
+
+### Error Handling
+1. Hardware Issues
+   - Handle device not found
+   - Manage connection errors
+   - Implement retry mechanisms
+
+2. Authentication Failures
+   - Handle incorrect PIN
+   - Manage timeout scenarios
+   - Provide clear error messages
+
+3. Backup Issues
+   - Handle backup failures
+   - Implement recovery procedures
+   - Provide user guidance 
