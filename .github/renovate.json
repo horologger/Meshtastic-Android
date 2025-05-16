@@ -18,13 +18,13 @@
   "packageRules": [
     {
       "matchPackageNames": [
-        "https://github.com/meshtastic/protobufs.git"
+        "https://horologger-github/horologger/protobufs.git"
       ],
       "changelogUrl": "https://github.com/meshtastic/protobufs/compare/{{currentDigest}}...{{newDigest}}"
     },
     {
       "matchPackageNames": [
-        "https://github.com/meshtastic/design.git"
+        "https://horologger-github/horologger/design.git"
       ],
       "changelogUrl": "https://github.com/meshtastic/design/compare/{{currentDigest}}...{{newDigest}}"
     }
