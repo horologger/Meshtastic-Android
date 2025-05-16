@@ -28,6 +28,10 @@
         android:name="android.hardware.location.gps"
         android:required="false" />
 
+    <!-- NFC permissions for Satochip -->
+    <uses-permission android:name="android.permission.NFC" />
+    <uses-feature android:name="android.hardware.nfc.hce" android:required="false" />
+
     <!-- Request legacy Bluetooth permissions on older devices -->
     <uses-permission android:name="android.permission.BLUETOOTH"
         android:maxSdkVersion="30" />
