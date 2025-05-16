@@ -13,11 +13,14 @@ rm -rf ~/.gradle/caches/8.14
 
 # Build with gradle
 ./gradlew assembleDebug --no-daemon
+./gradlew assembleFdroidDebug // What Studio is doing
+./gradlew assembleFdroidRelease
 
 # Check for connected device
 adb devices -l
 
 # Install APK on connected device
+adb install app/build/outputs/apk/fdroid/debug/app-fdroid-debug.apk // What Studio is doing
 adb install app/build/outputs/apk/google/debug/app-google-debug.apk
 
 # Uninstall APK from device
@@ -34,3 +37,4 @@ export ANDROID_NDK_HOME=/Users/i830671/Library/Android/sdk/ndk-bundle
 export ANDROID_NDK_ROOT=/Users/i830671/Library/Android/sdk/ndk-bundle
 export ANDROID_NDK_PATH=/Users/i830671/Library/Android/sdk/ndk-bundle
 export ANDROID_NDK_PLATFORM=android-21
+
