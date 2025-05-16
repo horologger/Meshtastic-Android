@@ -17,7 +17,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace 'com.geeksville.mesh'
+    namespace 'com.koine.mesh'
 
     signingConfigs {
         release {
@@ -29,12 +29,12 @@ android {
     }
     compileSdk 35
     defaultConfig {
-        applicationId "com.geeksville.mesh"
+        applicationId "com.koine.mesh"
         minSdkVersion 21 // The oldest emulator image I have tried is 22 (though 21 probably works)
         targetSdk 34
         versionCode 30525 // format is Mmmss (where M is 1+the numeric major number
         versionName "2.5.25"
-        testInstrumentationRunner "com.geeksville.mesh.TestRunner"
+        testInstrumentationRunner "com.koine.mesh.TestRunner"
 
         // per https://developer.android.com/studio/write/vector-asset-studio
         vectorDrawables.useSupportLibrary = true
