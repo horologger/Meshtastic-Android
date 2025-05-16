@@ -1,20 +1,24 @@
+# Setup Environment
+export ANDROID_HOME=/Users/i830671/Library/Android/sdk
+
 # Initialize submodules
 git submodule update --init --recursive
 
 # Clean prior to build
-./gradlew clean
+rm -rf ~/.gradle/caches/8.14
+./gradlew clean --no-daemon
 
 # Generate Protocol Buffers
-gradlew generateProto
+./gradlew generateProto
 
 # Build with gradle
-./gradlew assemble
+./gradlew assembleDebug --no-daemon
 
 # Check for connected device
 adb devices -l
 
 # Install APK on connected device
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+adb install app/build/outputs/apk/google/debug/app-google-debug.apk
 
 # Uninstall APK from device
 adb uninstall com.geeksville.mesh
