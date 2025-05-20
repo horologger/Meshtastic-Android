@@ -29,3 +29,6 @@ keystore.properties
 # Markdown files for private notes!
 *.md
 !README.md
+
+.vscode
+
