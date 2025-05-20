@@ -25,3 +25,7 @@ keystore.properties
 
 # Kotlin compiler
 .kotlin
+
+# Markdown files for private notes
+*.md
+!README.md
