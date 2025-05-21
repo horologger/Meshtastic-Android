@@ -147,6 +147,14 @@ dependencies {
 
     implementation(fileTree(dir: 'libs', include: ['*.jar']))
 
+    // Force BouncyCastle version
+    configurations.all {
+        resolutionStrategy {
+            force 'org.bouncycastle:bcprov-jdk15on:1.70'
+            force 'org.bouncycastle:bcpkix-jdk15on:1.70'
+        }
+    }
+
     // Bundles
     implementation(libs.bundles.androidx)
     implementation(libs.bundles.ui)
@@ -162,6 +170,14 @@ dependencies {
     //OSM
     implementation(libs.bundles.osm)
     implementation(libs.osmdroid.geopackage){ exclude group: "com.j256.ormlite" }
+
+    // Satochip dependencies
+    implementation 'org.bouncycastle:bcprov-jdk15on:1.70'
+    implementation 'org.bouncycastle:bcpkix-jdk15on:1.70'
+    implementation('org.bitcoinj:bitcoinj-core:0.16.2') {
+        exclude group: 'org.bouncycastle', module: 'bcprov-jdk15to18'
+        exclude group: 'com.google.protobuf', module: 'protobuf-javalite'
+    }
 
     //ZXing
     implementation(libs.zxing.android.embedded) { transitive = false }
