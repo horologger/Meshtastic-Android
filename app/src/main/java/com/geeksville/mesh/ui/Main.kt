@@ -264,7 +264,7 @@ private fun MainAppBar(
                     DebugMenuActions()
 
                 currentDestination.hasRoute<Route.TestPanel>() ->
-                    TestMenuActions()
+                    {}
 
                 else -> {}
             }

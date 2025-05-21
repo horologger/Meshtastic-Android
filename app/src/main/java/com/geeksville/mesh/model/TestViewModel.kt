@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import javax.inject.Inject
+import androidx.compose.ui.graphics.Color
 
 data class TestResult(
     val name: String,
@@ -32,10 +33,34 @@ data class TestResult(
     val details: String = ""
 )
 
+enum class LogMessageType {
+    INFO,
+    WARNING,
+    ERROR,
+    SUCCESS;
+
+    val color: Color
+        get() = when (this) {
+            INFO -> Color(0xFF90EE90) // Light green
+            WARNING -> Color(0xFFFFD700) // Gold
+            ERROR -> Color(0xFFFF6B6B) // Light red
+            SUCCESS -> Color(0xFF00FF00) // Bright green
+        }
+}
+
+data class LogMessage(
+    val message: String,
+    val type: LogMessageType = LogMessageType.INFO,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
 @HiltViewModel
 class TestViewModel @Inject constructor() : ViewModel() {
     private val _testResults = MutableStateFlow<List<TestResult>>(emptyList())
     val testResults: StateFlow<List<TestResult>> = _testResults.asStateFlow()
+
+    private val _logMessages = MutableStateFlow<List<LogMessage>>(emptyList())
+    val logMessages: StateFlow<List<LogMessage>> = _logMessages.asStateFlow()
 
     fun addTestResult(name: String, status: String, details: String = "") {
         _testResults.update { currentList ->
@@ -45,5 +70,15 @@ class TestViewModel @Inject constructor() : ViewModel() {
 
     fun clearTestResults() {
         _testResults.value = emptyList()
+    }
+
+    fun addLogMessage(message: String, type: LogMessageType = LogMessageType.INFO) {
+        _logMessages.update { currentList ->
+            currentList + LogMessage(message, type)
+        }
+    }
+
+    fun clearLogMessages() {
+        _logMessages.value = emptyList()
     }
 } 
