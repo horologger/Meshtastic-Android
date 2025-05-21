@@ -58,6 +58,7 @@ import com.geeksville.mesh.ui.ShareScreen
 import com.geeksville.mesh.ui.TopLevelDestination.Companion.isTopLevel
 import com.geeksville.mesh.ui.map.MapView
 import com.geeksville.mesh.ui.message.MessageScreen
+import com.geeksville.mesh.ui.TestPanel
 import kotlinx.serialization.Serializable
 
 enum class AdminRoute(@StringRes val title: Int) {
@@ -202,6 +203,9 @@ sealed interface Route {
 
     @Serializable
     data object TracerouteLog : Route
+
+    @Serializable
+    data object TestPanel : Route
 }
 
 fun NavDestination.isConfigRoute(): Boolean {
@@ -316,6 +320,9 @@ fun NavGraph(
                     popUpTo<Route.Share> { inclusive = true }
                 }
             }
+        }
+        composable<Route.TestPanel> {
+            TestPanel()
         }
     }
 }

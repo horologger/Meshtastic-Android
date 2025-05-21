@@ -143,6 +143,7 @@ fun MainScreen(
             ) { action ->
                 when (action) {
                     MainMenuAction.DEBUG -> navController.navigate(Route.DebugPanel)
+                    MainMenuAction.TEST_PANEL -> navController.navigate(Route.TestPanel)
                     MainMenuAction.RADIO_CONFIG -> navController.navigate(Route.RadioConfig())
                     MainMenuAction.QUICK_CHAT -> navController.navigate(Route.QuickChat)
                     else -> onAction(action)
@@ -166,6 +167,7 @@ fun MainScreen(
 
 enum class MainMenuAction(@StringRes val stringRes: Int) {
     DEBUG(R.string.debug_panel),
+    TEST_PANEL(R.string.test_panel),
     RADIO_CONFIG(R.string.device_settings),
     EXPORT_MESSAGES(R.string.save_messages),
     THEME(R.string.theme),
@@ -206,6 +208,11 @@ private fun MainAppBar(
                 currentDestination.hasRoute<Route.DebugPanel>() ->
                     Text(
                         stringResource(id = R.string.debug_panel),
+                    )
+
+                currentDestination.hasRoute<Route.TestPanel>() ->
+                    Text(
+                        stringResource(id = R.string.test_panel),
                     )
 
                 currentDestination.hasRoute<Route.QuickChat>() ->
@@ -255,6 +262,9 @@ private fun MainAppBar(
 
                 currentDestination.hasRoute<Route.DebugPanel>() ->
                     DebugMenuActions()
+
+                currentDestination.hasRoute<Route.TestPanel>() ->
+                    TestMenuActions()
 
                 else -> {}
             }
