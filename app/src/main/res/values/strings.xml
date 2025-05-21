@@ -610,4 +610,8 @@
     <string name="set_region">Set Region</string>
     <string name="unmute">Unmute</string>
     <string name="dynamic">Dynamic</string>
+
+    <!-- NFC Dialog Strings -->
+    <string name="nfc_scan_title">Scan NFC Card</string>
+    <string name="nfc_scan_message">Please scan your Satochip card to sign the message</string>
 </resources>
