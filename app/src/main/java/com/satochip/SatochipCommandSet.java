@@ -35,7 +35,7 @@ import static com.satochip.Constants.*;
  */
 public class SatochipCommandSet {
 
-    private static final Logger logger = Logger.getLogger("com.satochip.client");
+    private static final Logger logger = Logger.getLogger("org.satochip.client");
 
     private final CardChannel apduChannel;
     private SecureChannelSession secureChannel;
@@ -62,7 +62,7 @@ public class SatochipCommandSet {
 
     public static final byte[] SATOCHIP_AID = Hex.decode("5361746f43686970"); //SatoChip
     public static final byte[] SEEDKEEPER_AID = Hex.decode("536565644b6565706572"); //SeedKeeper
-    public static final byte[] SATODIME_AID = Hex.decode("5361746f44696d65"); //SatoDime 
+    public static final byte[] SATODIME_AID = Hex.decode("5361746f44696d65"); //SatoDime
 
     public final static byte DERIVE_P1_SOURCE_MASTER = (byte) 0x00;
     public final static byte DERIVE_P1_SOURCE_PARENT = (byte) 0x40;
@@ -78,7 +78,7 @@ public class SatochipCommandSet {
         this.secureChannel = new SecureChannelSession();
         this.parser = new SatochipParser();
         this.satodimeStatus = new SatodimeStatus();
-        logger.setLevel(Level.WARNING);
+        logger.setLevel(Level.INFO);
     }
 
     public void setLoggerLevel(String level) {
@@ -217,7 +217,7 @@ public class SatochipCommandSet {
                 // check answer
                 if (sw12 == 0x9000) { // ok!
                     if (isEncrypted) {
-                        // decrypt 
+                        // decrypt
                         //logger.info("SATOCHIPLIB: Rapdu encrypted:"+ rapdu.toHexString());
                         rapdu = secureChannel.decrypt_secure_channel(rapdu);
                         //logger.info("SATOCHIPLIB: Rapdu decrypted:"+ rapdu.toHexString());
@@ -281,7 +281,16 @@ public class SatochipCommandSet {
 
         APDUCommand selectApplet;
         if (cardType.equals("satochip")) {
-            selectApplet = new APDUCommand(0x00, 0xA4, 0x04, 0x00, SATOCHIP_AID);
+          selectApplet = new APDUCommand(0x00, 0xA4, 0x04, 0x00, SATOCHIP_AID); // xxx Find Correct AID for Satochip
+// From Constants.java in sparrow.io.satochip
+//          /****************************************
+//           * Instruction codes *
+//           ****************************************/
+//          public static final byte CLA = (byte) 0xB0;
+//          // Applet initialization
+//          public static final byte INS_SETUP = (byte) 0x2A;
+
+//          selectApplet = new APDUCommand(0xB0, 0x2A, 0x04, 0x00, SATOCHIP_AID); // xxx Find Correct AID for Satochip
         } else if (cardType.equals("seedkeeper")) {
             selectApplet = new APDUCommand(0x00, 0xA4, 0x04, 0x00, SEEDKEEPER_AID);
         } else {
@@ -555,7 +564,7 @@ public class SatochipCommandSet {
             logger.info("SATOCHIPLIB: C-APDU changeCardPin");
             APDUResponse rapdu = this.cardTransmit(plainApdu);
             logger.info("SATOCHIPLIB: R-APDU changeCardPin:"+ rapdu.toHexString());
-            
+
             rapdu.checkAuthOK();
             return rapdu;
 
@@ -614,7 +623,7 @@ public class SatochipCommandSet {
             this.pin0 = null;
             throw e;
         }
-        
+
     }
 
     /****************************************
@@ -851,11 +860,61 @@ public class SatochipCommandSet {
      ****************************************/
 
     public APDUResponse cardSignTransactionHash(byte keynbr, byte[] txhash, byte[] chalresponse) {
+        // Check if secure channel is needed and initialize if required
+        if (status == null) {
+            cardGetStatus();
+        }
+
+        if (status.needsSecureChannel() && !secureChannel.initializedSecureChannel()) {
+            try {
+                cardInitiateSecureChannel();
+                logger.info("SATOCHIPLIB: Secure channel initiated for transaction signing");
+            } catch (IOException e) {
+                logger.warning("SATOCHIPLIB: Failed to initialize secure channel: " + e.getMessage());
+                throw new RuntimeException("Failed to initialize secure channel for transaction signing", e);
+            }
+        }
+
+        // Validate transaction hash
+        if (txhash == null) {
+            logger.warning("SATOCHIPLIB: Transaction hash is null");
+            throw new IllegalArgumentException("Transaction hash cannot be null");
+        }
+
+        if (txhash.length != 32) {
+            logger.warning("SATOCHIPLIB: Invalid transaction hash length: " + txhash.length + " (expected 32)");
+            throw new IllegalArgumentException("Transaction hash must be 32 bytes");
+        }
+
+        // Log the transaction hash for debugging
+        logger.info("SATOCHIPLIB: Transaction hash to sign: " + Hex.toHexString(txhash));
+
+        // Validate key number
+        if (keynbr < 0 || keynbr > 3) {
+            logger.warning("SATOCHIPLIB: Invalid key number: " + keynbr);
+            throw new IllegalArgumentException("Key number must be between 0 and 3");
+        }
+
+        // Verify key derivation
+        try {
+            logger.info("SATOCHIPLIB: Verifying key derivation for key slot " + keynbr);
+            // Try to get the extended key first
+            if (defaultBip32path == null) {
+                defaultBip32path = "m/44'/60'/0'/0/0";
+            }
+            logger.info("SATOCHIPLIB: Using BIP32 path: " + defaultBip32path);
+            byte[][] extendedKeyData = cardBip32GetExtendedKey();
+            if (extendedKeyData == null || extendedKeyData.length < 2) {
+                logger.warning("SATOCHIPLIB: Failed to get extended key data");
+                throw new RuntimeException("Failed to get extended key data");
+            }
+            logger.info("SATOCHIPLIB: Successfully derived key for slot " + keynbr);
+        } catch (Exception e) {
+            logger.warning("SATOCHIPLIB: Failed to verify key derivation: " + e.getMessage());
+            throw new RuntimeException("Failed to verify key derivation", e);
+        }
 
         byte[] data;
-        if (txhash.length != 32) {
-            throw new RuntimeException("Wrong txhash length (should be 32)");
-        }
         if (chalresponse == null) {
             data = new byte[32];
             System.arraycopy(txhash, 0, data, 0, txhash.length);
@@ -868,14 +927,48 @@ public class SatochipCommandSet {
             data[offset++] = (byte) 0x00;
             System.arraycopy(chalresponse, 0, data, offset, chalresponse.length);
         } else {
-            throw new RuntimeException("Wrong challenge-response length (should be 20)");
+            logger.warning("SATOCHIPLIB: Invalid challenge-response length: " + chalresponse.length + " (expected 20)");
+            throw new IllegalArgumentException("Challenge-response must be 20 bytes");
         }
-        APDUCommand plainApdu = new APDUCommand(0xB0, INS_SIGN_TRANSACTION_HASH, keynbr, 0x00, data);
 
-        logger.info("SATOCHIPLIB: C-APDU cardSignTransactionHash:" + plainApdu.toHexString());
+        // Create and log the raw APDU command
+        // APDUCommand plainApdu = new APDUCommand(0xB0, INS_SIGN_TRANSACTION_HASH, keynbr, 0x00, data);
+        APDUCommand plainApdu = new APDUCommand(0xB0, INS_SIGN_TRANSACTION_HASH, 0xff, 0x00, data);
+        try {
+            byte[] rawApdu = plainApdu.serialize();
+            logger.info("SATOCHIPLIB: Raw APDU command bytes: " + Hex.toHexString(rawApdu));
+            logger.info("SATOCHIPLIB: APDU command details - CLA: 0x" + String.format("%02X", rawApdu[0]) +
+                       ", INS: 0x" + String.format("%02X", rawApdu[1]) +
+                       ", P1: 0x" + String.format("%02X", rawApdu[2]) +
+                       ", P2: 0x" + String.format("%02X", rawApdu[3]) +
+                       ", Lc: 0x" + String.format("%02X", rawApdu[4]));
+            if (rawApdu.length > 5) {
+                logger.info("SATOCHIPLIB: APDU data: " + Hex.toHexString(Arrays.copyOfRange(rawApdu, 5, rawApdu.length)));
+            }
+        } catch (IOException e) {
+            logger.warning("SATOCHIPLIB: Failed to serialize APDU command: " + e.getMessage());
+            throw new RuntimeException("Failed to serialize APDU command", e);
+        }
+
+        // xxx what is ff doing here?
+
+        // plainApdu = b0 7a ff 00 36 90 24 b6 79 96 b4 6a 56 98 79 7a ca 70 18 ef 30 9b 13 43 d6 1e a0 8e 4c 1b ab 10 b1 fa 2d a2 9b 80 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+
         APDUResponse respApdu = this.cardTransmit(plainApdu);
         logger.info("SATOCHIPLIB: R-APDU cardSignTransactionHash:" + respApdu.toHexString());
-        // TODO: check SW code for particular status
+
+        // Check for specific error codes
+        int sw = respApdu.getSw();
+        if (sw == 0x9C10) {
+            logger.warning("SATOCHIPLIB: Transaction signing failed - Invalid key number or key not authorized");
+            throw new RuntimeException("Transaction signing failed - Invalid key number or key not authorized");
+        } else if (sw == 0x9C06) {
+            logger.warning("SATOCHIPLIB: Transaction signing failed - PIN verification required");
+            throw new RuntimeException("Transaction signing failed - PIN verification required");
+        } else if (sw != 0x9000) {
+            logger.warning("SATOCHIPLIB: Transaction signing failed with status word: " + String.format("0x%04X", sw));
+            throw new RuntimeException("Transaction signing failed with status word: " + String.format("0x%04X", sw));
+        }
 
         return respApdu;
     }
@@ -1785,20 +1878,20 @@ public class SatochipCommandSet {
 
     /****************************************
     *            PKI commands              *
-    ****************************************/  
-    
+    ****************************************/
+
     public APDUResponse cardExportPersoPubkey(){
-        
+
         APDUCommand plainApdu = new APDUCommand(0xB0, INS_EXPORT_PKI_PUBKEY, 0x00, 0x00, new byte[0]);
         logger.info("SATOCHIPLIB: C-APDU cardExportPersoPubkey:"+ plainApdu.toHexString());
         APDUResponse respApdu = this.cardTransmit(plainApdu);
         logger.info("SATOCHIPLIB: R-APDU cardExportPersoPubkey:"+ respApdu.toHexString());
-        
+
         return respApdu;
     }
-    
+
     public String cardExportPersoCertificate() throws APDUException {
-        
+
         // init
         byte p1 = 0x00;
         byte p2 = 0x01; // init
@@ -1821,11 +1914,11 @@ public class SatochipCommandSet {
             logger.warning("SATOCHIPLIB: Error during personalization certificate export: no card present(0x0000)");
             return "Error during personalization certificate export: no card present(0x0000)";
         }
-        
+
         if (certificate_size==0){
             return ""; //new byte[0]; //"(empty)";
-        }               
-        
+        }
+
         // UPDATE apdu: certificate data in chunks
         p2= 0x02; //update
         byte[] certificate = new byte[certificate_size];//certificate_size*[0]
@@ -1851,7 +1944,7 @@ public class SatochipCommandSet {
             remaining_size-=chunk_size;
             cert_offset+=chunk_size;
         }
-        
+
         // last chunk
         data[0]= (byte) ((cert_offset>>8)&0xFF);
         data[1]= (byte) (cert_offset&0xFF);
@@ -1866,33 +1959,33 @@ public class SatochipCommandSet {
         response= respApdu.getData();
         System.arraycopy(response, 0, certificate, cert_offset, remaining_size);
         cert_offset+=remaining_size;
-        
+
         // parse and return raw certificate
         String cert_pem= parser.convertBytesToStringPem(certificate);
         logger.warning("SATOCHIPLIB: cardExportPersoCertificate checking certificate:" + Arrays.toString(certificate));
 
         return cert_pem;
     }
-    
+
     public APDUResponse cardChallengeResponsePerso(byte[] challenge_from_host){
-        
+
         APDUCommand plainApdu = new APDUCommand(0xB0, INS_CHALLENGE_RESPONSE_PKI, 0x00, 0x00, challenge_from_host);
         logger.info("SATOCHIPLIB: C-APDU cardChallengeResponsePerso:"+ plainApdu.toHexString());
         APDUResponse respApdu = this.cardTransmit(plainApdu);
         logger.info("SATOCHIPLIB: R-APDU cardChallengeResponsePerso:"+ respApdu.toHexString());
-        
+
         return respApdu;
     }
-    
+
     public String[] cardVerifyAuthenticity(){
-        
+
         String txt_error="";
         String txt_ca="(empty)";
         String txt_subca="(empty)";
         String txt_device="(empty)";
         final String FAIL= "FAIL";
         final String OK= "OK";
-        
+
         // get certificate from device
         String cert_pem="";
         try{
@@ -1906,13 +1999,13 @@ public class SatochipCommandSet {
             String[] out = new String [] {FAIL, txt_ca, txt_subca, txt_device, txt_error};
             return out;
         }
-        
+
         // verify certificate chain
         boolean isValidated= false;
         PublicKey pubkeyDevice= null;
         try{
             // load certs
-            InputStream isCa = this.getClass().getClassLoader().getResourceAsStream("cert/ca.cert");  
+            InputStream isCa = this.getClass().getClassLoader().getResourceAsStream("cert/ca.cert");
             InputStream isSubca;
             if (cardType.equals("satochip")) {
                 isSubca = this.getClass().getClassLoader().getResourceAsStream("cert/subca-satochip.cert");
@@ -1934,23 +2027,23 @@ public class SatochipCommandSet {
             logger.warning("SATOCHIPLIB: certDevice: " + certDevice);
             txt_device= certDevice.toString();
             logger.warning("SATOCHIPLIB: txtCertDevice: " + txt_device);
-            
+
             pubkeyDevice= certDevice.getPublicKey();
             logger.warning("SATOCHIPLIB: certDevice pubkey: " + pubkeyDevice.toString());
-            
+
             // cert chain
             Certificate[] chain= new Certificate[2];
             chain[0]= certDevice;
             chain[1]= certSubca;
             CertPath certPath = certificateFactory.generateCertPath(Arrays.asList(chain));
-            
+
             // keystore
             KeyStore ks = KeyStore.getInstance(KeyStore.getDefaultType());
             ks.load(null, null);
             KeyStore.TrustedCertificateEntry tcEntry= new KeyStore.TrustedCertificateEntry(certCa);
             //KeyStore.TrustedCertificateEntry tcEntry= new KeyStore.TrustedCertificateEntry(certSubca);
             ks.setEntry("SatodimeCA", tcEntry, null);
-            
+
             // validator
             PKIXParameters params = new PKIXParameters(ks);
             params.setRevocationEnabled(false);
@@ -1958,7 +2051,7 @@ public class SatochipCommandSet {
             certValidator.validate(certPath, params);
             isValidated=true;
             logger.info("SATOCHIPLIB: Certificate chain validated!");
-            
+
         }catch (Exception e){
             logger.warning("SATOCHIPLIB: Exception in cardVerifyAuthenticity:"+ e);
             e.printStackTrace();
@@ -1967,7 +2060,7 @@ public class SatochipCommandSet {
             String[] out = new String [] {FAIL, txt_ca, txt_subca, txt_device, txt_error};
             return out;
         }
-        
+
         // perform challenge-response with the card to ensure that the key is correctly loaded in the device
         try{
             SecureRandom random = new SecureRandom();
@@ -1977,7 +2070,7 @@ public class SatochipCommandSet {
             byte[][] parsedData= parser.parseVerifyChallengeResponsePerso(rapduChalresp);
             byte[] challenge_from_device= parsedData[0];
             byte[] sig= parsedData[1];
-            
+
             // build challenge byte[]
             int offset=0;
             String chalHeaderString=  "Challenge:";
@@ -1988,7 +2081,7 @@ public class SatochipCommandSet {
             System.arraycopy(challenge_from_device, 0, chalFullBytes, offset, 32);
             offset+= 32;
             System.arraycopy(challenge_from_host, 0, chalFullBytes, offset, 32);
-            
+
             // verify sig with pubkeyDevice
             byte[] pubkey= new byte[65];
             byte[] pubkeyEncoded= pubkeyDevice.getEncoded();
@@ -2004,8 +2097,8 @@ public class SatochipCommandSet {
             txt_error= "Failed to verify challenge-response! \r\n\r\n" + e.toString();
             String[] out = new String [] {FAIL, txt_ca, txt_subca, txt_device, txt_error};
             return out;
-        }       
-        
+        }
+
         String[] out =  new String [] {OK, txt_ca, txt_subca, txt_device, txt_error};
         return out;
     }
