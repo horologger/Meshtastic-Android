@@ -719,6 +719,15 @@ class MeshService : Service(), Logging {
         }
     }
 
+    private fun modifyReceivedText(text: String): String {
+        return if (text.contains(":")) {
+            val parts = text.split(":", limit = 2)
+            "${parts[0]}~"
+        } else {
+            text
+        }
+    }
+
     // Update our model and resend as needed for a MeshPacket we just received from the radio
     private fun handleReceivedData(packet: MeshPacket) {
         myNodeInfo?.let { myInfo ->
@@ -728,7 +737,6 @@ class MeshService : Service(), Logging {
             val dataPacket = toDataPacket(packet)
 
             if (dataPacket != null) {
-
                 // We ignore most messages that we sent
                 val fromUs = myInfo.myNodeNum == packet.from
 
@@ -748,7 +756,15 @@ class MeshService : Service(), Logging {
                             rememberReaction(packet)
                         } else {
                             debug("Received CLEAR_TEXT from $fromId")
-                            rememberDataPacket(dataPacket)
+                            // Create a new DataPacket with modified text if it's a text message
+                            val modifiedPacket = if (dataPacket.text != null) {
+                                dataPacket.copy(
+                                    bytes = modifyReceivedText(dataPacket.text!!).encodeToByteArray()
+                                )
+                            } else {
+                                dataPacket
+                            }
+                            rememberDataPacket(modifiedPacket)
                         }
                     }
 
@@ -1929,6 +1945,10 @@ class MeshService : Service(), Logging {
         rememberReaction(packet.copy { from = myNodeNum })
     }
 
+    private fun modifyMessageText(text: String): String {
+        return "$text:xxx"
+    }
+
     private val binder = object : IMeshService.Stub() {
 
         override fun setDeviceAddress(deviceAddr: String?) = toRemoteExceptions {
@@ -1986,36 +2006,54 @@ class MeshService : Service(), Logging {
             toRemoteExceptions {
                 if (p.id == 0) p.id = generatePacketId()
 
-                info("sendData dest=${p.to}, id=${p.id} <- ${p.bytes!!.size} bytes (connectionState=$connectionState)")
+                // Create a new DataPacket with modified text if it's a text message
+                val packetToSend = if (p.dataType == Portnums.PortNum.TEXT_MESSAGE_APP_VALUE) {
+                    DataPacket(
+                        to = p.to,
+                        bytes = modifyMessageText(p.text!!).encodeToByteArray(),
+                        dataType = p.dataType,
+                        from = p.from,
+                        time = p.time,
+                        id = p.id,
+                        status = p.status,
+                        hopLimit = p.hopLimit,
+                        channel = p.channel,
+                        wantAck = p.wantAck
+                    )
+                } else {
+                    p
+                }
 
-                if (p.dataType == 0) {
+                info("sendData dest=${packetToSend.to}, id=${packetToSend.id} <- ${packetToSend.bytes!!.size} bytes (connectionState=$connectionState)")
+
+                if (packetToSend.dataType == 0) {
                     throw Exception("Port numbers must be non-zero!") // we are now more strict
                 }
 
-                if (p.bytes.size >= MeshProtos.Constants.DATA_PAYLOAD_LEN.number) {
-                    p.status = MessageStatus.ERROR
+                if (packetToSend.bytes.size >= MeshProtos.Constants.DATA_PAYLOAD_LEN.number) {
+                    packetToSend.status = MessageStatus.ERROR
                     throw RemoteException("Message too long")
                 } else {
-                    p.status = MessageStatus.QUEUED
+                    packetToSend.status = MessageStatus.QUEUED
                 }
 
                 if (connectionState == ConnectionState.CONNECTED) try {
-                    sendNow(p)
+                    sendNow(packetToSend)
                 } catch (ex: Exception) {
                     errormsg("Error sending message, so enqueueing", ex)
-                    enqueueForSending(p)
+                    enqueueForSending(packetToSend)
                 } else {
-                    enqueueForSending(p)
+                    enqueueForSending(packetToSend)
                 }
-                serviceBroadcasts.broadcastMessageStatus(p)
+                serviceBroadcasts.broadcastMessageStatus(packetToSend)
 
                 // Keep a record of DataPackets, so GUIs can show proper chat history
-                rememberDataPacket(p, false)
+                rememberDataPacket(packetToSend, false)
 
                 GeeksvilleApplication.analytics.track(
                     "data_send",
-                    DataPair("num_bytes", p.bytes.size),
-                    DataPair("type", p.dataType)
+                    DataPair("num_bytes", packetToSend.bytes.size),
+                    DataPair("type", packetToSend.dataType)
                 )
 
                 GeeksvilleApplication.analytics.track(
