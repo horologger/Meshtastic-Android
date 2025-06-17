@@ -79,7 +79,6 @@ import kotlinx.coroutines.cancel
 import javax.inject.Inject
 import android.nfc.NfcAdapter
 import android.util.Log
-import com.geeksville.mesh.ui.NfcSigningDialog
 
 @AndroidEntryPoint
 class MainActivity : AppCompatActivity(), Logging {
@@ -162,12 +161,6 @@ class MainActivity : AppCompatActivity(), Logging {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         
-        // Handle NFC intent
-        if (NfcAdapter.ACTION_TECH_DISCOVERED == intent.action) {
-            val dialog = supportFragmentManager.findFragmentByTag("nfc_dialog") as? NfcSigningDialog
-            dialog?.handleNfcIntent(intent)
-        }
-
         handleIntent(intent)
     }
 
@@ -553,14 +546,6 @@ class MainActivity : AppCompatActivity(), Logging {
             message = "",
             choices = langMap,
         )
-    }
-
-    // Example function to show the NFC signing dialog
-    private fun showNfcSigningDialog(message: String) {
-        NfcSigningDialog.newInstance(message) { signedMessage: String ->
-            // Handle the signed message here
-            Log.d(TAG, "Signed message: $signedMessage")
-        }.show(supportFragmentManager, "nfc_dialog")
     }
 
     companion object {
