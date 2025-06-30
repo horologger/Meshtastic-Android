@@ -615,4 +615,8 @@
     <!-- NFC Dialog Strings -->
     <string name="nfc_scan_title">Scan NFC Card</string>
     <string name="nfc_scan_message">Please scan your Satochip card to sign the message</string>
+    <string name="nfc_waiting_for_card">Waiting for card...</string>
+    <string name="nfc_card_detected">Card detected! Verifying...</string>
+    <string name="nfc_card_verified">Card verified successfully</string>
+    <string name="nfc_card_removed">Card removed</string>
 </resources>

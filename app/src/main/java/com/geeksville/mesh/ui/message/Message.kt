@@ -18,9 +18,14 @@
 package com.geeksville.mesh.ui.message
 
 import android.content.ClipData
+import android.content.Context
+import android.nfc.NfcAdapter
+import android.nfc.NfcManager
+import android.app.Activity
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyRow
@@ -35,6 +40,7 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.SelectAll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -59,7 +65,10 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusEvent
 import androidx.compose.ui.platform.ClipEntry
 import androidx.compose.ui.platform.LocalClipboard
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
@@ -96,6 +105,12 @@ internal fun MessageScreen(
 ) {
     val coroutineScope = rememberCoroutineScope()
     val clipboardManager = LocalClipboard.current
+    val context = LocalContext.current
+    val activity = LocalView.current.context as? Activity
+    var showNfcScanDialog by remember { mutableStateOf(false) }
+    val nfcManager = remember { NFCManager(context) }
+    val scanStatus = nfcManager.scanStatus
+    val isCardVerified = nfcManager.isCardVerified
 
     val channelIndex = contactKey[0].digitToIntOrNull()
     val nodeId = contactKey.substring(1)
@@ -139,6 +154,57 @@ internal fun MessageScreen(
                 showDeleteDialog = false
             },
             onDismiss = { showDeleteDialog = false }
+        )
+    }
+
+    if (showNfcScanDialog) {
+        AlertDialog(
+            onDismissRequest = {
+                showNfcScanDialog = false
+                activity?.let { nfcManager.stopNfcScan(it) }
+            },
+            title = { Text(stringResource(R.string.nfc_scan_title)) },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = stringResource(R.string.nfc_scan_message),
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = scanStatus ?: "",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showNfcScanDialog = false
+                        activity?.let { nfcManager.stopNfcScan(it) }
+                        viewModel.sendMessage(messageInput.value.text, contactKey)
+                    },
+                    enabled = isCardVerified
+                ) {
+                    Text(stringResource(R.string.send))
+                }
+            },
+            dismissButton = {
+                TextButton(
+                    onClick = {
+                        showNfcScanDialog = false
+                        activity?.let { nfcManager.stopNfcScan(it) }
+                    }
+                ) {
+                    Text(stringResource(R.string.cancel))
+                }
+            }
         )
     }
 
@@ -198,7 +264,14 @@ internal fun MessageScreen(
                         viewModel.sendMessage(action.message, contactKey)
                     }
                 }
-                TextInput(isConnected, messageInput) { viewModel.sendMessage(it, contactKey) }
+                TextInput(isConnected, messageInput) {
+                    if (nfcManager.isNFCEnabled()) {
+                        showNfcScanDialog = true
+                        activity?.let { nfcManager.startNfcScan(it) }
+                    } else {
+                        viewModel.sendMessage(it, contactKey)
+                    }
+                }
             }
         }
     ) { padding ->
