@@ -130,6 +130,11 @@ android {
     sourceSets {
         // Adds exported schema location as test app assets.
         named("androidTest") { assets.srcDirs(files("$projectDir/schemas")) }
+        
+        // Add satochip library source sets
+        named("main") {
+            java.srcDirs("src/main/java/satochip-android", "src/main/java/satochip-lib")
+        }
     }
 }
 
@@ -233,6 +238,12 @@ dependencies {
     androidTestImplementation(libs.bundles.testing.room)
 
     detektPlugins(libs.detekt.formatting)
+
+    //satochip-android & satochip-lib related dependencies
+    implementation("org.bitcoinj:bitcoinj-core:0.16.2") {
+        exclude(group = "com.google.protobuf", module = "protobuf-javalite")
+    }
+
 }
 
 ksp {
