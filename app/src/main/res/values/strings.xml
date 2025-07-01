@@ -354,6 +354,7 @@
     <string name="unknown_age">Unknown Age</string>
     <string name="copy">Copy</string>
     <string name="alert_bell_text">Alert Bell Character!</string>
+    <string name="sign_message_text">Sign Message</string>
     <string name="channel_settings">Channel Settings</string>
     <string name="samsung_instructions">Samsung Instructions</string>
     <string name="alerts_dnd_request_title">Enable Critical Alerts to bypass Do Not Disturb</string>
