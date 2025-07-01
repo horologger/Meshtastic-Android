@@ -32,5 +32,6 @@ data class QuickChatAction(
     enum class Mode {
         Append,
         Instant,
+        Sign,
     }
 }

@@ -356,20 +356,34 @@ private fun handleQuickChatAction(
     viewModel: UIViewModel,
     contactKey: String
 ) {
-    if (action.mode == QuickChatAction.Mode.Append) {
-        val originalText = messageInput.text
-        if (!originalText.contains(action.message)) {
-            val needsSpace =
-                !originalText.endsWith(' ') && originalText.isNotEmpty()
-            val newText = buildString {
-                append(originalText)
-                if (needsSpace) append(' ')
-                append(action.message)
-            }.take(MESSAGE_CHARACTER_LIMIT)
-            messageInput.setTextAndPlaceCursorAtEnd(newText)
+    when (action.mode) {
+        QuickChatAction.Mode.Append -> {
+            val originalText = messageInput.text
+            if (!originalText.contains(action.message)) {
+                val needsSpace =
+                    !originalText.endsWith(' ') && originalText.isNotEmpty()
+                val newText = buildString {
+                    append(originalText)
+                    if (needsSpace) append(' ')
+                    append(action.message)
+                }.take(MESSAGE_CHARACTER_LIMIT)
+                messageInput.setTextAndPlaceCursorAtEnd(newText)
+            }
         }
-    } else {
-        viewModel.sendMessage(action.message, contactKey)
+        QuickChatAction.Mode.Sign -> {  // TODO: Implement sign message action
+            val originalText = messageInput.text
+            if (!originalText.contains(action.message)) {
+                val newText = buildString {
+                    append(originalText)
+                    append(action.message)
+                    append("HEXSIGNATURE")
+                }.take(MESSAGE_CHARACTER_LIMIT)
+                messageInput.setTextAndPlaceCursorAtEnd(newText)
+            }
+        }
+        else -> {
+            viewModel.sendMessage(action.message, contactKey)
+        }
     }
 }
 
@@ -493,16 +507,26 @@ private fun QuickChatRow(
     onClick: (QuickChatAction) -> Unit
 ) {
     val alertAction = QuickChatAction(
+        uuid = -1L, // Unique UUID for alert action
         name = "🔔",
         message = "🔔 ${stringResource(R.string.alert_bell_text)} \u0007",
         mode = QuickChatAction.Mode.Append,
         position = -1
     )
 
+    val signMessageAction = QuickChatAction(
+        uuid = -2L, // Unique UUID for sign message action
+        name = "✍️",
+        // message = "✍️ ${stringResource(R.string.sign_message_text)}",
+        message = ":",
+        mode = QuickChatAction.Mode.Sign,
+        position = -1
+    )
+
     LazyRow(
         modifier = modifier,
     ) {
-        items(listOf(alertAction) + actions, key = { it.uuid }) { action ->
+        items(listOf(alertAction, signMessageAction) + actions, key = { it.uuid }) { action ->
             Button(
                 onClick = { onClick(action) },
                 modifier = Modifier.padding(horizontal = 4.dp),
