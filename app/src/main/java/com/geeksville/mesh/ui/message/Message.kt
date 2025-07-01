@@ -350,6 +350,24 @@ private fun ReplySnippet(
     }
 }
 
+/**
+ * Creates a signed message by appending 8 random hex digits to the original text and action message.
+ * @param originalText The original text in the message input
+ * @param actionMessage The message from the quick chat action
+ * @return The resulting string with the original text, action message, and 8 random hex digits
+ */
+private fun createSignedMessage(originalText: String, actionMessage: String): String {
+    val randomHex = (0..7).joinToString("") { 
+        (0..15).random().toString(16).uppercase() 
+    }
+    
+    return buildString {
+        append(originalText)
+        append(actionMessage)
+        append(randomHex)
+    }
+}
+
 private fun handleQuickChatAction(
     action: QuickChatAction,
     messageInput: TextFieldState,
@@ -370,14 +388,11 @@ private fun handleQuickChatAction(
                 messageInput.setTextAndPlaceCursorAtEnd(newText)
             }
         }
-        QuickChatAction.Mode.Sign -> {  // TODO: Implement sign message action
+        QuickChatAction.Mode.Sign -> {
             val originalText = messageInput.text
             if (!originalText.contains(action.message)) {
-                val newText = buildString {
-                    append(originalText)
-                    append(action.message)
-                    append("HEXSIGNATURE")
-                }.take(MESSAGE_CHARACTER_LIMIT)
+                val newText = createSignedMessage(originalText.toString(), action.message.toString())
+                    .take(MESSAGE_CHARACTER_LIMIT)
                 messageInput.setTextAndPlaceCursorAtEnd(newText)
             }
         }
