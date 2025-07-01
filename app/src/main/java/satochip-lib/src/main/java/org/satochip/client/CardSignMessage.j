@@ -6,6 +6,7 @@ import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.nio.ByteBuffer;
 import org.satochip.io.APDUResponse;
+import org.satochip.io.CardChannel;
 import org.satochip.client.Constants;
 import org.satochip.client.SatochipParser;
 

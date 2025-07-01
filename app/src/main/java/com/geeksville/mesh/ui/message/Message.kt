@@ -70,6 +70,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -100,6 +102,8 @@ import com.geeksville.mesh.ui.node.components.NodeMenuAction
 import com.geeksville.mesh.ui.sharing.SharedContactDialog
 import kotlinx.coroutines.launch
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import android.app.Activity
 
 private const val MESSAGE_CHARACTER_LIMIT = 200
 private const val SNIPPET_CHARACTER_LIMIT = 50
@@ -183,8 +187,10 @@ internal fun MessageScreen(
 
     // NFC Scan prompt state
     var showNfcScanPrompt by remember { mutableStateOf(false) }
+    var messageToSign by remember { mutableStateOf("") }
     if (showNfcScanPrompt) {
         NfcScanPromptDialog(
+            messageToSign = messageToSign,
             onDismiss = { showNfcScanPrompt = false },
             onScanComplete = { signature ->
                 // Append the signature to the current message
@@ -290,7 +296,8 @@ internal fun MessageScreen(
                 enabled = isConnected,
                 actions = quickChat,
                 onClick = { action ->
-                    handleQuickChatAction(action, messageInput, viewModel, contactKey) {
+                    handleQuickChatAction(action, messageInput, viewModel, contactKey) { message ->
+                        messageToSign = message
                         showNfcScanPrompt = true
                     }
                 }
@@ -371,22 +378,25 @@ private fun ReplySnippet(
  * Creates a signed message by prompting the user to scan an NFC card.
  * @param originalText The original text in the message input
  * @param actionMessage The message from the quick chat action
- * @param onScanRequested Callback to trigger NFC scanning
+ * @param onScanRequested Callback to trigger NFC scanning with the message to sign
  * @return The resulting string with the original text and action message (signature will be added later)
  */
 private fun createSignedMessage(
     originalText: String, 
     actionMessage: String,
-    onScanRequested: () -> Unit
+    onScanRequested: (String) -> Unit
 ): String {
-    // Trigger NFC scan prompt
-    onScanRequested()
-    
-    // Return the base message (signature will be appended after NFC scan)
-    return buildString {
+    // Create the message to sign
+    val messageToSign = buildString {
         append(originalText)
         append(actionMessage)
     }
+    
+    // Trigger NFC scan prompt with the message
+    onScanRequested(messageToSign)
+    
+    // Return the base message (signature will be appended after NFC scan)
+    return messageToSign
 }
 
 private fun handleQuickChatAction(
@@ -394,7 +404,7 @@ private fun handleQuickChatAction(
     messageInput: TextFieldState,
     viewModel: UIViewModel,
     contactKey: String,
-    onNfcScanRequested: () -> Unit
+    onNfcScanRequested: (String) -> Unit
 ) {
     when (action.mode) {
         QuickChatAction.Mode.Append -> {
@@ -415,9 +425,9 @@ private fun handleQuickChatAction(
             if (!originalText.contains(action.message)) {
                 val newText = createSignedMessage(
                     originalText.toString(), 
-                    action.message.toString()
-                ) { onNfcScanRequested() }
-                    .take(MESSAGE_CHARACTER_LIMIT)
+                    action.message.toString(),
+                    onNfcScanRequested
+                ).take(MESSAGE_CHARACTER_LIMIT)
                 messageInput.setTextAndPlaceCursorAtEnd(newText)
             }
         }
@@ -664,33 +674,115 @@ private fun TextInputPreview() {
 
 @Composable
 private fun NfcScanPromptDialog(
+    messageToSign: String,
     onDismiss: () -> Unit,
     onScanComplete: (String) -> Unit
 ) {
+    val context = LocalContext.current
+    val activity = context as? Activity
+    var isScanning by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+    
+    // Create NFC scanner instance
+    val nfcScanner = remember {
+        if (activity != null) NfcScanner(activity) else null
+    }
+    
+    // Handle NFC scanning
+    LaunchedEffect(Unit) {
+        if (nfcScanner != null && !isScanning) {
+            isScanning = true
+            errorMessage = null
+            
+            nfcScanner.startScanning(
+                message = messageToSign,
+                onSuccess = { signature ->
+                    isScanning = false
+                    onScanComplete(signature)
+                },
+                onError = { error ->
+                    isScanning = false
+                    errorMessage = error
+                }
+            )
+        }
+    }
+    
+    // Cleanup when dialog is dismissed
+    DisposableEffect(Unit) {
+        onDispose {
+            nfcScanner?.stopScanning()
+        }
+    }
+    
     AlertDialog(
-        onDismissRequest = onDismiss,
+        onDismissRequest = {
+            nfcScanner?.stopScanning()
+            onDismiss()
+        },
         title = {
             Text("Scan NFC Card")
         },
         text = {
-            Text(
-                "Please tap your Satochip card to sign this message."
-            )
+            Column {
+                Text(
+                    if (isScanning) {
+                        "Please tap your Satochip card to sign this message..."
+                    } else {
+                        "Please tap your Satochip card to sign this message."
+                    }
+                )
+                Spacer(modifier = Modifier.size(8.dp))
+                Text(
+                    text = "Note: Card must be initialized with a BIP32 seed",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (errorMessage != null) {
+                    Spacer(modifier = Modifier.size(8.dp))
+                    Text(
+                        text = errorMessage!!,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
         },
         confirmButton = {
             TextButton(
                 onClick = {
-                    // For now, simulate a successful scan with a placeholder signature
-                    // TODO: Implement actual NFC scanning
-                    onScanComplete("A1B2C3D4")
+                    nfcScanner?.stopScanning()
+                    onDismiss()
                 }
             ) {
-                Text("Simulate Scan")
+                Text("Cancel")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Cancel")
+            if (errorMessage != null) {
+                TextButton(
+                    onClick = {
+                        errorMessage = null
+                        isScanning = false
+                        // Restart scanning
+                        nfcScanner?.let { scanner ->
+                            isScanning = true
+                            scanner.startScanning(
+                                message = messageToSign,
+                                onSuccess = { signature ->
+                                    isScanning = false
+                                    onScanComplete(signature)
+                                },
+                                onError = { error ->
+                                    isScanning = false
+                                    errorMessage = error
+                                }
+                            )
+                        }
+                    }
+                ) {
+                    Text("Retry")
+                }
             }
         }
     )
