@@ -733,11 +733,11 @@ private fun NfcScanPromptDialog(
                     }
                 )
                 Spacer(modifier = Modifier.size(8.dp))
-                Text(
-                    text = "Note: Card must be initialized with a BIP32 seed",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+                // Text(
+                //     text = "Note: Card must be initialized with a BIP32 seed",
+                //     style = MaterialTheme.typography.bodySmall,
+                //     color = MaterialTheme.colorScheme.onSurfaceVariant
+                // )
                 if (errorMessage != null) {
                     Spacer(modifier = Modifier.size(8.dp))
                     Text(
