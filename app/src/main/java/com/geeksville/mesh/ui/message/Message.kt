@@ -181,6 +181,21 @@ internal fun MessageScreen(
         )
     }
 
+    // NFC Scan prompt state
+    var showNfcScanPrompt by remember { mutableStateOf(false) }
+    if (showNfcScanPrompt) {
+        NfcScanPromptDialog(
+            onDismiss = { showNfcScanPrompt = false },
+            onScanComplete = { signature ->
+                // Append the signature to the current message
+                val currentText = messageInput.text.toString()
+                val newText = "$currentText$signature"
+                messageInput.setTextAndPlaceCursorAtEnd(newText)
+                showNfcScanPrompt = false
+            }
+        )
+    }
+
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
@@ -275,7 +290,9 @@ internal fun MessageScreen(
                 enabled = isConnected,
                 actions = quickChat,
                 onClick = { action ->
-                    handleQuickChatAction(action, messageInput, viewModel, contactKey)
+                    handleQuickChatAction(action, messageInput, viewModel, contactKey) {
+                        showNfcScanPrompt = true
+                    }
                 }
             )
             ReplySnippet(replyingTo, { replyingTo = null }, ourNode)
@@ -351,20 +368,24 @@ private fun ReplySnippet(
 }
 
 /**
- * Creates a signed message by appending 8 random hex digits to the original text and action message.
+ * Creates a signed message by prompting the user to scan an NFC card.
  * @param originalText The original text in the message input
  * @param actionMessage The message from the quick chat action
- * @return The resulting string with the original text, action message, and 8 random hex digits
+ * @param onScanRequested Callback to trigger NFC scanning
+ * @return The resulting string with the original text and action message (signature will be added later)
  */
-private fun createSignedMessage(originalText: String, actionMessage: String): String {
-    val randomHex = (0..7).joinToString("") { 
-        (0..15).random().toString(16).uppercase() 
-    }
+private fun createSignedMessage(
+    originalText: String, 
+    actionMessage: String,
+    onScanRequested: () -> Unit
+): String {
+    // Trigger NFC scan prompt
+    onScanRequested()
     
+    // Return the base message (signature will be appended after NFC scan)
     return buildString {
         append(originalText)
         append(actionMessage)
-        append(randomHex)
     }
 }
 
@@ -372,7 +393,8 @@ private fun handleQuickChatAction(
     action: QuickChatAction,
     messageInput: TextFieldState,
     viewModel: UIViewModel,
-    contactKey: String
+    contactKey: String,
+    onNfcScanRequested: () -> Unit
 ) {
     when (action.mode) {
         QuickChatAction.Mode.Append -> {
@@ -391,7 +413,10 @@ private fun handleQuickChatAction(
         QuickChatAction.Mode.Sign -> {
             val originalText = messageInput.text
             if (!originalText.contains(action.message)) {
-                val newText = createSignedMessage(originalText.toString(), action.message.toString())
+                val newText = createSignedMessage(
+                    originalText.toString(), 
+                    action.message.toString()
+                ) { onNfcScanRequested() }
                     .take(MESSAGE_CHARACTER_LIMIT)
                 messageInput.setTextAndPlaceCursorAtEnd(newText)
             }
@@ -635,4 +660,38 @@ private fun TextInputPreview() {
             }
         }
     }
+}
+
+@Composable
+private fun NfcScanPromptDialog(
+    onDismiss: () -> Unit,
+    onScanComplete: (String) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Scan NFC Card")
+        },
+        text = {
+            Text(
+                "Please tap your Satochip card to sign this message."
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    // For now, simulate a successful scan with a placeholder signature
+                    // TODO: Implement actual NFC scanning
+                    onScanComplete("A1B2C3D4")
+                }
+            ) {
+                Text("Simulate Scan")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
 }

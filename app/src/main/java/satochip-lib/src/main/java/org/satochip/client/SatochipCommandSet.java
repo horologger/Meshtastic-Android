@@ -255,7 +255,7 @@ public class SatochipCommandSet {
     }
 
     /**
-     * Selects a Satochip/Satodime/SeedKeeper instance. The applet is assumed to have been installed with its default AID.
+     * Selects a Satochip instance. The applet is assumed to have been installed with its default AID.
      *
      * @return the raw card response
      * @throws IOException communication error
